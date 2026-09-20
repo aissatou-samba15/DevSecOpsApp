@@ -1,0 +1,31 @@
+﻿name: CI DevSecOpsApp
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restaurer les dépendances
+        run: dotnet restore DevSecOpsApp.slnx
+
+      - name: Compiler l'application
+        run: dotnet build DevSecOpsApp.slnx --no-restore --configuration Release
+
+      - name: Exécuter les tests
+        run: dotnet test DevSecOpsApp.slnx --no-build --configuration Release
