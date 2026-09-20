@@ -1,0 +1,6 @@
+services:
+  devsecopsapp:
+    image: ${DOCKER_REGISTRY-}devsecopsapp
+    build:
+      context: .
+      dockerfile: DevSecOpsApp/Dockerfile
