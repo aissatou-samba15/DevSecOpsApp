@@ -29,3 +29,27 @@ jobs:
 
       - name: Exécuter les tests
         run: dotnet test DevSecOpsApp.slnx --no-build --configuration Release
+
+  security-analysis:
+    name: Analyse SAST avec CodeQL
+    runs-on: ubuntu-latest
+
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Initialiser CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: csharp
+
+      - name: Compiler pour CodeQL
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Analyser le code
+        uses: github/codeql-action/analyze@v3
