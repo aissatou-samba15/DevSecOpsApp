@@ -24,6 +24,9 @@ jobs:
       - name: Restaurer les dépendances
         run: dotnet restore DevSecOpsApp.slnx
 
+      - name: Analyser les vulnérabilités des dépendances (SCA)
+        run: dotnet list DevSecOpsApp.slnx package --vulnerable --include-transitive
+
       - name: Compiler l'application
         run: dotnet build DevSecOpsApp.slnx --no-restore --configuration Release
 
