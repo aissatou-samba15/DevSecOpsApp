@@ -1,72 +1,163 @@
-﻿name: CI DevSecOpsApp
+﻿
+# ============================================================
+# PIPELINE DEVSECOPS - DEVSECOPSAPP
+# ============================================================
+# Ce workflow automatise la construction, les tests et
+# plusieurs contrôles de sécurité de l'application.
+# ============================================================
+
+name: CI DevSecOpsApp
+
+# ============================================================
+# DÉCLENCHEMENT DU PIPELINE
+# ============================================================
+# Le pipeline se lance automatiquement lorsqu'un code est
+# envoyé sur la branche main ou lorsqu'une Pull Request
+# est créée vers la branche main.
+# ============================================================
 
 on:
   push:
     branches:
       - main
+
   pull_request:
     branches:
       - main
 
+
 jobs:
+
+  # ==========================================================
+  # 1. INTÉGRATION CONTINUE (CI)
+  # ==========================================================
+  # Cette partie restaure les dépendances, vérifie les
+  # vulnérabilités des packages, compile l'application
+  # et exécute les tests.
+  # ==========================================================
+
   build-and-test:
     runs-on: ubuntu-latest
 
     steps:
+
+      # Récupération du code source depuis GitHub
       - name: Récupérer le code
         uses: actions/checkout@v4
 
+      # Installation de l'environnement .NET 8
       - name: Installer .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
 
+      # Restauration des dépendances du projet
       - name: Restaurer les dépendances
         run: dotnet restore DevSecOpsApp.slnx
 
+      # ========================================================
+      # 2. SCA - ANALYSE DES DÉPENDANCES
+      # ========================================================
+      # Cette analyse recherche les vulnérabilités connues
+      # dans les packages NuGet utilisés par l'application.
+      # SCA = Software Composition Analysis.
+      # ========================================================
+
       - name: Analyser les vulnérabilités des dépendances (SCA)
         run: dotnet list DevSecOpsApp/DevSecOpsApp.csproj package --vulnerable --include-transitive
-    
+
+      # Compilation de l'application en mode Release
       - name: Compiler l'application
         run: dotnet build DevSecOpsApp.slnx --no-restore --configuration Release
 
+      # Exécution des tests automatisés
       - name: Exécuter les tests
         run: dotnet test DevSecOpsApp.slnx --no-build --configuration Release
+
+
+  # ==========================================================
+  # 3. SAST - ANALYSE STATIQUE DU CODE
+  # ==========================================================
+  # CodeQL analyse le code source C# afin d'identifier
+  # automatiquement certaines vulnérabilités de sécurité.
+  # SAST = Static Application Security Testing.
+  # ==========================================================
 
   security-analysis:
     name: Analyse SAST avec CodeQL
     runs-on: ubuntu-latest
 
+    # Autorisations nécessaires pour permettre à CodeQL
+    # d'envoyer les résultats de sécurité à GitHub.
     permissions:
       security-events: write
       actions: read
       contents: read
 
     steps:
+
+      # Récupération du code source
       - name: Récupérer le code
         uses: actions/checkout@v4
 
+      # Initialisation de l'analyse CodeQL pour C#
       - name: Initialiser CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: csharp
 
+      # Construction du projet pour permettre à CodeQL
+      # d'analyser correctement le code compilé.
       - name: Compiler pour CodeQL
         uses: github/codeql-action/autobuild@v3
 
+      # Analyse et transmission des résultats à GitHub
       - name: Analyser le code
         uses: github/codeql-action/analyze@v3
+
+
+  # ==========================================================
+  # 4. SÉCURITÉ DE L'IMAGE DOCKER
+  # ==========================================================
+  # Cette partie construit l'image Docker puis analyse son
+  # contenu avec Trivy afin de rechercher des vulnérabilités.
+  # ==========================================================
 
   docker-security:
     name: Scan de sécurité de l'image Docker
     runs-on: ubuntu-latest
 
+    # Autorisations permettant notamment de publier
+    # l'image Docker dans GitHub Container Registry.
+    permissions:
+      contents: read
+      packages: write
+
     steps:
+
+      # Récupération du code source
       - name: Récupérer le code
         uses: actions/checkout@v4
 
+      # ========================================================
+      # CONSTRUCTION DE L'IMAGE DOCKER
+      # ========================================================
+      # Création de l'image Docker à partir du Dockerfile.
+      # ========================================================
+
       - name: Construire l'image Docker
         run: docker build -t devsecopsapp:latest -f ./DevSecOpsApp/Dockerfile .
+
+      # ========================================================
+      # SCAN DE SÉCURITÉ AVEC TRIVY
+      # ========================================================
+      # Trivy recherche les vulnérabilités dans :
+      # - les composants du système d'exploitation ;
+      # - les bibliothèques utilisées par l'application.
+      #
+      # Le pipeline échoue si une vulnérabilité HIGH ou
+      # CRITICAL est détectée.
+      # ========================================================
 
       - name: Scanner l'image Docker avec Trivy
         uses: aquasecurity/trivy-action@v0.36.0
@@ -77,3 +168,30 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+
+      # ========================================================
+      # CONNEXION À GITHUB CONTAINER REGISTRY
+      # ========================================================
+      # Connexion au registre de conteneurs de GitHub afin
+      # de pouvoir publier l'image Docker.
+      # ========================================================
+
+      - name: Se connecter à GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ========================================================
+      # PUBLICATION DE L'IMAGE DOCKER
+      # ========================================================
+      # L'image validée par Trivy est identifiée avec le nom
+      # du registre puis envoyée vers GitHub Container Registry.
+      # ========================================================
+
+      - name: Publier l'image Docker
+        run: |
+          docker tag devsecopsapp:latest ghcr.io/${{ github.repository_owner }}/devsecopsapp:latest
+          docker push ghcr.io/${{ github.repository_owner }}/devsecopsapp:latest
+
