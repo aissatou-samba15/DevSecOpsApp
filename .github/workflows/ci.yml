@@ -56,3 +56,24 @@ jobs:
 
       - name: Analyser le code
         uses: github/codeql-action/analyze@v3
+
+  docker-security:
+    name: Scan de sécurité de l'image Docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Construire l'image Docker
+        run: docker build -t devsecopsapp:latest -f ./DevSecOpsApp/Dockerfile .
+
+      - name: Scanner l'image Docker avec Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: 'devsecopsapp:latest'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
