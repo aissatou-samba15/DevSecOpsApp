@@ -1,7 +1,7 @@
 ﻿
 # ============================================================
 # PIPELINE DEVSECOPS - DEVSECOPSAPP
-# ============================================================
+# Pipeline complet : CI, SCA, SAST, Docker, Trivy et GHCR# ============================================================
 # Ce workflow automatise la construction, les tests et
 # plusieurs contrôles de sécurité de l'application.
 # ============================================================
